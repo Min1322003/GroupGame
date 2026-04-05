@@ -1,0 +1,48 @@
+# ===== Unity Generated =====
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# Keep package manifest ONLY
+Packages/*
+!Packages/manifest.json
+!Packages/packages-lock.json
+
+# ===== OS / Editor =====
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+
+# Mono / crash
+mono_crash.*
+sysinfo.txt
+
+# Build outputs
+*.apk
+*.aab
+*.app
+*.exe
+
+# Addressables (optional)
+Assets/AddressableAssetsData/*/*.bin*
+Assets/Addressables_Temp*
+
+# Visual Scripting
+Assets/Unity.VisualScripting.Generated/
