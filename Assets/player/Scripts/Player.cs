@@ -15,10 +15,8 @@ public class Player : MonoBehaviour
     {
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
+
+        transform.Translate(movement * moveSpeed * Time.deltaTime);
     }
 
-    void FixedUpdate()
-    {
-        transform.Translate(movement * moveSpeed * Time.fixedDeltaTime);
-    }
 }
