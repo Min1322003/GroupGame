@@ -47,6 +47,9 @@ TagManager:
   - name: Fire
     uniqueID: 3118033521
     locked: 0
+  - name: Players
+    uniqueID: 308278845
+    locked: 0
   m_RenderingLayers:
   - Default
   m_MigratedRenderPipelines: []

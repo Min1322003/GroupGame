@@ -18,6 +18,7 @@ public class PlayerController : MonoBehaviour
     public Vector2 circleCenter = Vector2.zero;
     public float circleRadius = 5f;
 
+
     private Rigidbody2D rb;
     private Animator animator;
 
@@ -25,10 +26,10 @@ public class PlayerController : MonoBehaviour
     private bool isAttacking = false;
     private float attackTimer = 0f;
 
-    private float currentHealth;
     private bool isDead = false;
 
     private Vector2 spawnPosition;
+    private float currentHealth;
 
     void Awake()
     {
@@ -38,8 +39,8 @@ public class PlayerController : MonoBehaviour
 
     void Start()
     {
-        currentHealth = maxHealth;
         spawnPosition = transform.position;
+        currentHealth = maxHealth;
     }
 
     void Update()
@@ -59,27 +60,18 @@ public class PlayerController : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (isDead) return;
+        if (isDead || isAttacking) return;
+        rb.linearVelocity = moveInput * moveSpeed;
 
-        if (!isAttacking)
-            rb.linearVelocity = moveInput * moveSpeed;
-        else
-            rb.linearVelocity = Vector2.zero;
     }
 
     void HandleInput()
     {
-        if (!isAttacking)
-        {
-            moveInput = new Vector2(
-                Input.GetAxisRaw("Horizontal"),
-                Input.GetAxisRaw("Vertical")
-            ).normalized;
-        }
-        else
-        {
-            moveInput = Vector2.zero;
-        }
+        moveInput = new Vector2(
+            Input.GetAxisRaw("Horizontal"),
+            Input.GetAxisRaw("Vertical")
+        ).normalized;
+
 
         if (Input.GetKeyDown(KeyCode.J) && !isAttacking)
             StartAttack();
@@ -107,8 +99,8 @@ public class PlayerController : MonoBehaviour
 
     void UpdateAnimator()
     {
-        animator.SetFloat("x", moveInput.x);
-        animator.SetFloat("y", moveInput.y);
+        animator.SetFloat("x", moveInput[0]);
+        animator.SetFloat("y", moveInput[1]);
         animator.SetBool("Moving", moveInput.sqrMagnitude > 0);
     }
 
@@ -125,6 +117,12 @@ public class PlayerController : MonoBehaviour
 
             if (currentHealth <= 0f)
                 Die();
+        }else{
+            if (currentHealth < maxHealth)
+            {
+                currentHealth = maxHealth;
+                Debug.Log($"Back inside boundary! HP: {currentHealth:F1}");
+            }
         }
     }
 
