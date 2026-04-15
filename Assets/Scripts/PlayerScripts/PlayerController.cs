@@ -99,6 +99,7 @@ public class PlayerController : MonoBehaviour
 
     void UpdateAnimator()
     {
+        Debug.Log(moveInput);
         animator.SetFloat("x", moveInput[0]);
         animator.SetFloat("y", moveInput[1]);
         animator.SetBool("Moving", moveInput.sqrMagnitude > 0);
@@ -133,7 +134,6 @@ public class PlayerController : MonoBehaviour
         animator.SetBool("Moving", false);
         animator.SetBool("Attacking", false);
 
-        // Disable the sprite so the player visually disappears
         GetComponent<SpriteRenderer>().enabled = false;
 
         Debug.Log("Player died! Press Space to respawn.");
@@ -152,7 +152,6 @@ public class PlayerController : MonoBehaviour
         Debug.Log("Player respawned!");
     }
 
-    // Draws the boundary in the Scene view for easy visualization
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
