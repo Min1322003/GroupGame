@@ -57,4 +57,9 @@ public class PlayerCombatStats : NetworkBehaviour
         if (!IsServer) return;
         accumulatedDamage.Value += damage;
     }
+
+    public void ResetDamage()
+    {
+        accumulatedDamage.Value = 0f;
+    }
 }

@@ -6,10 +6,6 @@ public class PlayerController : NetworkBehaviour
     [Header("Movement")]
     public float moveSpeed = 5f;
 
-    [Header("Health")]
-    public float maxHealth = 100f;
-    public float damagePerSecond = 10f;
-
 
     private Rigidbody2D rb;
     private Animator animator;
@@ -24,6 +20,12 @@ public class PlayerController : NetworkBehaviour
     private bool isInputLocked = false;
     private PlayerCombatStats combatStats;
 
+    [Header("Boundary")]
+    public float boundaryRadius = 5f;
+    public float maxOutsideTime = 5f;
+
+    private float outsideTimer = 0f;
+
     void Awake()
 {
     rb = GetComponent<Rigidbody2D>();
@@ -34,7 +36,6 @@ public class PlayerController : NetworkBehaviour
     void Start()
     {
         spawnPosition = transform.position;
-        currentHealth = maxHealth;
     }
 
     void Update()
@@ -49,6 +50,7 @@ public class PlayerController : NetworkBehaviour
         }
         HandleInput();
         UpdateAnimator();
+        CheckBoundary();
     }
     void FixedUpdate()
     {
@@ -96,7 +98,7 @@ public class PlayerController : NetworkBehaviour
     void Respawn()
     {
         isDead = false;
-        currentHealth = maxHealth;
+        combatStats.ResetDamage();
 
         transform.position = spawnPosition;
         rb.linearVelocity = Vector2.zero;
@@ -104,5 +106,38 @@ public class PlayerController : NetworkBehaviour
         GetComponent<SpriteRenderer>().enabled = true;
 
         Debug.Log("Player respawned!");
+    }
+    void CheckBoundary()
+    {
+        float distanceFromCenter = transform.position.magnitude;
+        Debug.Log($"Distance from center: {distanceFromCenter:F2}");
+
+        if (distanceFromCenter > boundaryRadius)
+        {
+            outsideTimer += Time.deltaTime;
+
+            Debug.Log($"Player is outside the boundary! Time outside: {outsideTimer:F2} seconds");
+
+            if (outsideTimer >= maxOutsideTime && !isDead)
+            {
+                RequestDeathServerRpc();
+            }
+        }
+        else
+        {
+            outsideTimer = 0f;
+        }
+    }   
+    [ServerRpc]
+    void RequestDeathServerRpc()
+    {
+        if (isDead) return;
+
+        DieClientRpc();
+    }
+    [ClientRpc]
+    void DieClientRpc()
+    {
+        Die();
     }
 }
