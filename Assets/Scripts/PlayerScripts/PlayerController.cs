@@ -110,7 +110,7 @@ public class PlayerController : NetworkBehaviour
     void CheckBoundary()
     {
         float distanceFromCenter = transform.position.magnitude;
-        Debug.Log($"Distance from center: {distanceFromCenter:F2}");
+        // Debug.Log($"Distance from center: {distanceFromCenter:F2}");
 
         if (distanceFromCenter > boundaryRadius)
         {
