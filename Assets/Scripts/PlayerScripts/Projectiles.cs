@@ -3,6 +3,7 @@ using Unity.Netcode;
 
 public class Projectile : NetworkBehaviour
 {
+    public AudioSource shoot;
     // Sync init data so clients receive it correctly on spawn
     private NetworkVariable<Vector2> netDirection = new NetworkVariable<Vector2>(
         Vector2.zero,
@@ -27,10 +28,13 @@ public class Projectile : NetworkBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        shoot = GetComponent<AudioSource>();
     }
 
     public override void OnNetworkSpawn()
     {
+        shoot.Play();
+
         spawnTime = Time.time;
 
         if (IsServer)

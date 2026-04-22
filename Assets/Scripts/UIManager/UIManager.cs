@@ -12,6 +12,7 @@ public class UIManager : MonoBehaviour
 
     [Header("Audio")]
     [SerializeField] private AudioSource gameOverAudio;
+    [SerializeField] private AudioSource GameStartAudio;
 
     [Header("Settings")]
     [SerializeField] private float fadeDuration = 1.5f;
@@ -22,6 +23,7 @@ public class UIManager : MonoBehaviour
 
     void Start()
     {
+        GameStartAudio.Play();
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (gameOverCanvasGroup != null) gameOverCanvasGroup.alpha = 0;
 
@@ -33,6 +35,9 @@ public class UIManager : MonoBehaviour
     {
         HandleConnectionUI();
         HandleGameOverUI();
+
+        
+       
     }
 
     private void HandleConnectionUI()
@@ -48,7 +53,15 @@ public class UIManager : MonoBehaviour
 
     private void HandleGameOverUI()
     {
-        if (screenShown) return;
+        if (screenShown) {
+            if(localPlayer != null && localPlayer.IsDead().Equals(false)) {
+                GameStartAudio.Play();
+                screenShown = false;
+                gameOverAudio.Stop();
+                gameOverPanel.SetActive(false);
+            }
+            return;
+        }
 
         if (localPlayer == null)
         {
@@ -68,7 +81,11 @@ public class UIManager : MonoBehaviour
     private IEnumerator TriggerGameOverSequence()
     {
         // 1. Play Sound
-        if (gameOverAudio != null) gameOverAudio.Play();
+        if (gameOverAudio != null) {
+            gameOverAudio.Play();
+            GameStartAudio.Stop();
+        
+        }
 
         // 2. Show Panel
         if (gameOverPanel != null)

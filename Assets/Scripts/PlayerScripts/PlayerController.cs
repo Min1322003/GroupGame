@@ -123,6 +123,11 @@ public class PlayerController : NetworkBehaviour
         DieClientRpc();
     }
 
+    public bool IsDead()
+    {
+        return isDead;
+    }
+
     [ClientRpc]
     void DieClientRpc()
     {
