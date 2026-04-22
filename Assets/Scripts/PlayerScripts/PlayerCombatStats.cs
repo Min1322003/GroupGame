@@ -62,4 +62,22 @@ public class PlayerCombatStats : NetworkBehaviour
     {
         accumulatedDamage.Value = 0f;
     }
+
+    /// <summary>Server-only: reduce buildup damage (used by leech spells).</summary>
+    public void ServerHealAccumulatedDamage(float amount)
+    {
+        if (!IsServer) return;
+        accumulatedDamage.Value = Mathf.Max(0f, accumulatedDamage.Value - amount);
+    }
+
+    /// <summary>Owner applies teleport — works with client-authoritative NetworkTransform.</summary>
+    [ClientRpc]
+    public void TeleportToPositionClientRpc(Vector2 worldPosition, ClientRpcParams clientRpcParams = default)
+    {
+        if (!IsOwner) return;
+        rb.linearVelocity = Vector2.zero;
+        rb.position = worldPosition;
+        isKnockedBack = false;
+        playerController.SetInputLocked(false);
+    }
 }

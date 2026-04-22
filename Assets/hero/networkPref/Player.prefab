@@ -53,7 +53,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1321423803
+  GlobalObjectIdHash: 3467901411
   InScenePlacedSourceGlobalObjectIdHash: 1321423803
   DeferredDespawnTick: 0
   Ownership: 1
@@ -287,9 +287,9 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   pistol: {fileID: 11400000, guid: e2ed1b9f43304464d978bfea7aaef1c3, type: 2}
   spells:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 11400000, guid: 275f98fb0bc0e4afa917bea595f87c0e, type: 2}
+  - {fileID: 11400000, guid: ba575724425dc4e87862bfa1601608b0, type: 2}
+  - {fileID: 11400000, guid: dcd688f2d8a93406688174bcf74cbc23, type: 2}
 --- !u!58 &3836893122405268288
 CircleCollider2D:
   m_ObjectHideFlags: 0

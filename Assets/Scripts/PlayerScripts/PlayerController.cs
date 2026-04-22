@@ -87,7 +87,6 @@ public class PlayerController : NetworkBehaviour
         if (locked)
         {
             moveInput = Vector2.zero;
-            rb.linearVelocity = Vector2.zero;
         }
     }
 

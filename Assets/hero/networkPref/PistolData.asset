@@ -16,6 +16,6 @@ MonoBehaviour:
   damage: 10
   cooldown: 0.5
   inputKey: 0
-  projectileSpeed: 5
+  projectileSpeed: 7
   projectileLifetime: 3
   projectilePrefab: {fileID: 1419148971408539667, guid: ae669e340c6d449769bead6bd9fd898a, type: 3}

@@ -51,8 +51,8 @@ public class PlayerWeaponController : NetworkBehaviour
             pistolCooldownTimer = pistol.cooldown;
         }
 
-        // Spells — Q, E, R
-        KeyCode[] spellKeys = { KeyCode.Q, KeyCode.E, KeyCode.R };
+        // Spells — Q, E, C
+        KeyCode[] spellKeys = { KeyCode.Q, KeyCode.E, KeyCode.C };
         for (int i = 0; i < spellKeys.Length; i++)
         {
             if (spells[i] == null) continue;
@@ -89,7 +89,35 @@ public class PlayerWeaponController : NetworkBehaviour
     [ServerRpc]
     private void CastSpellServerRpc(int spellIndex, Vector2 aimDir)
     {
-        // Stub — spell implementations come next
-        Debug.Log($"Spell {spellIndex} cast by {OwnerClientId} toward {aimDir}");
+        if (spellIndex < 0 || spellIndex >= spells.Length) return;
+
+        if (spells[spellIndex] is not ProjectileSpellData data)
+            return;
+
+        if (data.projectilePrefab == null) return;
+
+        GameObject obj = Instantiate(
+            data.projectilePrefab,
+            transform.position,
+            Quaternion.identity
+        );
+
+        Projectile proj = obj.GetComponent<Projectile>();
+        if (proj == null)
+        {
+            Destroy(obj);
+            return;
+        }
+
+        proj.direction = aimDir;
+        proj.speed = data.projectileSpeed;
+        proj.damage = data.damage;
+        proj.lifetime = data.projectileLifetime;
+        proj.ownerClientId = OwnerClientId;
+        proj.spellEffect = data.effect;
+        proj.knockbackBonus = data.knockbackBonus;
+        proj.leechHealAmount = data.leechHealAmount;
+
+        obj.GetComponent<NetworkObject>().Spawn();
     }
 }
