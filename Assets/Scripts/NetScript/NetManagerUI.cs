@@ -61,6 +61,18 @@ public class NetManagerUI : MonoBehaviour
 
         if (connectionSettingsPopup != null)
             connectionSettingsPopup.SetActive(false);
+
+        // Listen for network shutdown to stop discovery/broadcast
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnServerStopped += OnNetworkShutdown;
+            NetworkManager.Singleton.OnClientStopped += OnNetworkShutdown;
+        }
+    }
+
+    private void OnNetworkShutdown(bool _)
+    {
+        ServerDiscovery.GetInstance().StopDiscovery();
     }
 
     /// <summary>Call from a UI Button via inspector, or use <see cref="openConnectionSettingsButton"/>.</summary>
@@ -261,7 +273,12 @@ public class NetManagerUI : MonoBehaviour
         if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening)
             return;
 
-        TryStartListen(asHost: false);
+        if (TryStartListen(asHost: false))
+        {
+            // Start broadcasting server location for clients to auto-discover
+            ServerDiscovery.GetInstance().StartServerBroadcast();
+            Debug.Log("NetManagerUI: Server started and broadcasting for client discovery");
+        }
     }
 
     private void StartHost()
@@ -269,7 +286,12 @@ public class NetManagerUI : MonoBehaviour
         if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening)
             return;
 
-        TryStartListen(asHost: true);
+        if (TryStartListen(asHost: true))
+        {
+            // Start broadcasting server location for clients to auto-discover
+            ServerDiscovery.GetInstance().StartServerBroadcast();
+            Debug.Log("NetManagerUI: Host started and broadcasting for client discovery");
+        }
     }
 
     private void StartClient()
@@ -277,7 +299,24 @@ public class NetManagerUI : MonoBehaviour
         if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening)
             return;
 
-        ApplyTransportSettingsFromUi(false);
-        NetworkManager.Singleton.StartClient();
+        Debug.Log("NetManagerUI: Starting client discovery...");
+        
+        // Start server discovery - auto-connect when found
+        ServerDiscovery.GetInstance().StartClientDiscovery(
+            onServerFound: (serverAddress) =>
+            {
+                Debug.Log($"NetManagerUI: Server discovered at {serverAddress}, connecting...");
+                SetAddressUi(serverAddress);
+                ApplyTransportSettingsFromUi(false);
+                NetworkManager.Singleton.StartClient();
+            },
+            onDiscoveryTimeout: () =>
+            {
+                Debug.LogWarning("NetManagerUI: No server found, trying manual connection from UI settings...");
+                // Fallback to manual connection settings
+                ApplyTransportSettingsFromUi(false);
+                NetworkManager.Singleton.StartClient();
+            }
+        );
     }
 }
