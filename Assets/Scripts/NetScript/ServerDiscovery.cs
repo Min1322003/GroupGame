@@ -14,6 +14,9 @@ public class ServerDiscovery : MonoBehaviour
 {
     [SerializeField] private ushort discoveryPort = 7779; // Different from game port
     [SerializeField] private ushort gamePort = 7778;
+
+    /// <summary>Must match the UDP port UnityTransport is listening on (call after host/server starts).</summary>
+    public void SetAdvertisedGamePort(ushort port) => gamePort = port;
     
     private UdpClient udpClient;
     private bool isActive = false;
@@ -36,6 +39,15 @@ public class ServerDiscovery : MonoBehaviour
     private void OnDestroy()
     {
         StopDiscovery();
+        if (instance == this)
+            instance = null;
+    }
+
+    /// <summary>Does not create a GameObject. Use during shutdown so teardown does not spawn a new instance.</summary>
+    public static bool TryGetExisting(out ServerDiscovery sd)
+    {
+        sd = instance;
+        return sd != null;
     }
 
     /// <summary>Start server broadcasting its presence on the network.</summary>
@@ -61,7 +73,7 @@ public class ServerDiscovery : MonoBehaviour
     }
 
     /// <summary>Start client listening for servers on the network.</summary>
-    public void StartClientDiscovery(System.Action<string> onServerFound, System.Action onDiscoveryTimeout)
+    public void StartClientDiscovery(System.Action<string, ushort> onServerFound, System.Action onDiscoveryTimeout)
     {
         if (isActive)
             return;
@@ -85,41 +97,40 @@ public class ServerDiscovery : MonoBehaviour
 
     private IEnumerator BroadcastServerRoutine()
     {
-        string serverIp = LanAddressUtility.GetPrimaryIpv4();
-        string message = $"GAMESERVER:{serverIp}:{gamePort}";
-        byte[] data = System.Text.Encoding.UTF8.GetBytes(message);
-
-        Debug.LogError($"[SERVER BROADCAST DEBUG] Broadcasting: {message}");
-
-        while (isActive)
+        while (isActive && udpClient != null)
         {
+            string serverIp = LanAddressUtility.GetPrimaryIpv4();
+            string message = $"GAMESERVER:{serverIp}:{gamePort}";
+            byte[] data = System.Text.Encoding.UTF8.GetBytes(message);
+
             try
             {
-                // Broadcast to 255.255.255.255 on the discovery port
                 udpClient.Send(data, data.Length, new IPEndPoint(IPAddress.Broadcast, discoveryPort));
-                
-                // Also try sending to 127.0.0.1 for local testing
-                // udpClient.Send(data, data.Length, new IPEndPoint(IPAddress.Loopback, discoveryPort));
+            }
+            catch (ObjectDisposedException)
+            {
+                yield break;
             }
             catch (Exception e)
             {
                 Debug.LogWarning($"ServerDiscovery: Broadcast failed: {e.Message}");
             }
 
-            yield return new WaitForSeconds(1f); // Broadcast every second
+            yield return new WaitForSeconds(1f);
         }
     }
 
-    private IEnumerator DiscoverServerRoutine(System.Action<string> onServerFound, System.Action onDiscoveryTimeout)
+    private IEnumerator DiscoverServerRoutine(System.Action<string, ushort> onServerFound, System.Action onDiscoveryTimeout)
     {
         float timeoutSeconds = 10f;
         float elapsedTime = 0f;
         int packetsReceived = 0;
 
-        while (isActive && elapsedTime < timeoutSeconds)
+        while (isActive && udpClient != null && elapsedTime < timeoutSeconds)
         {
             bool serverFound = false;
             string serverAddress = "";
+            ushort serverGamePort = 0;
 
             try
             {
@@ -129,7 +140,7 @@ public class ServerDiscovery : MonoBehaviour
                     string message = System.Text.Encoding.UTF8.GetString(data);
                     packetsReceived++;
 
-                    Debug.LogError($"[DISCOVERY DEBUG] Received packet #{packetsReceived}: {message} from {remoteIpEndPoint.Address}");
+                    Debug.Log($"ServerDiscovery: packet #{packetsReceived} from {remoteIpEndPoint.Address}: {message}");
 
                     if (message.StartsWith("GAMESERVER:"))
                     {
@@ -137,8 +148,9 @@ public class ServerDiscovery : MonoBehaviour
                         if (parts.Length >= 3 && ushort.TryParse(parts[2], out ushort port))
                         {
                             serverAddress = parts[1];
+                            serverGamePort = port;
                             serverFound = true;
-                            Debug.LogError($"[DISCOVERY DEBUG] Valid server message parsed: IP={serverAddress}, Port={port}");
+                            Debug.Log($"ServerDiscovery: parsed server {serverAddress}:{port}");
                         }
                     }
                 }
@@ -151,9 +163,9 @@ public class ServerDiscovery : MonoBehaviour
             if (serverFound)
             {
                 Debug.Log($"ServerDiscovery: Found server at {serverAddress}");
-                Debug.LogError($"[DISCOVERY DEBUG] Connecting to discovered server at {serverAddress}");
+                Debug.Log($"ServerDiscovery: connecting to discovered server at {serverAddress}");
                 StopDiscovery();
-                onServerFound?.Invoke(serverAddress);
+                onServerFound?.Invoke(serverAddress, serverGamePort);
                 yield break;
             }
 

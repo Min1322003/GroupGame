@@ -8,7 +8,7 @@ public class UIManager : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private GameObject netUI;
     [SerializeField] private GameObject gameOverPanel;
-    [SerializeField] private CanvasGroup gameOverCanvasGroup; // Add a Canvas Group to your panel for fading
+    [SerializeField] private CanvasGroup gameOverCanvasGroup;
 
     [Header("Audio")]
     [SerializeField] private AudioSource gameOverAudio;
@@ -23,7 +23,7 @@ public class UIManager : MonoBehaviour
 
     void Start()
     {
-        GameStartAudio.Play();
+        GameStartAudio?.Play();
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (gameOverCanvasGroup != null) gameOverCanvasGroup.alpha = 0;
 
@@ -35,16 +35,12 @@ public class UIManager : MonoBehaviour
     {
         HandleConnectionUI();
         HandleGameOverUI();
-
-        
-       
     }
 
     private void HandleConnectionUI()
     {
         if (NetworkManager.Singleton == null || netUI == null) return;
 
-        // Automatically hide the NetUI (Server/Host/Client buttons) when game starts
         if (NetworkManager.Singleton.IsListening && netUI.activeSelf)
         {
             netUI.SetActive(false);
@@ -53,11 +49,13 @@ public class UIManager : MonoBehaviour
 
     private void HandleGameOverUI()
     {
-        if (screenShown) {
-            if(localPlayer != null && localPlayer.IsDead().Equals(false)) {
-                GameStartAudio.Play();
+        if (screenShown)
+        {
+            if (localPlayer != null && !localPlayer.IsDead())
+            {
+                GameStartAudio?.Play();
                 screenShown = false;
-                gameOverAudio.Stop();
+                gameOverAudio?.Stop();
                 gameOverPanel.SetActive(false);
             }
             return;
@@ -74,25 +72,19 @@ public class UIManager : MonoBehaviour
         if (isDead)
         {
             StartCoroutine(TriggerGameOverSequence());
-            screenShown = true; 
+            screenShown = true;
         }
     }
 
     private IEnumerator TriggerGameOverSequence()
     {
-        // 1. Play Sound
-        if (gameOverAudio != null) {
-            gameOverAudio.Play();
-            GameStartAudio.Stop();
-        
-        }
+        GameStartAudio?.Stop();
+        gameOverAudio?.Play();
 
-        // 2. Show Panel
         if (gameOverPanel != null)
         {
             gameOverPanel.SetActive(true);
-            
-            // 3. Smooth Fade-In
+
             if (gameOverCanvasGroup != null)
             {
                 float counter = 0;
@@ -104,7 +96,7 @@ public class UIManager : MonoBehaviour
                 }
             }
         }
-        
+
         Debug.Log("Game Over Sequence Complete!");
     }
 

@@ -46,9 +46,12 @@ public class NetManagerUI : MonoBehaviour
 
     private void Awake()
     {
-        serverButton.onClick.AddListener(StartServer);
-        hostButton.onClick.AddListener(StartHost);
-        clientButton.onClick.AddListener(StartClient);
+        if (serverButton != null)
+            serverButton.onClick.AddListener(StartServer);
+        if (hostButton != null)
+            hostButton.onClick.AddListener(StartHost);
+        if (clientButton != null)
+            clientButton.onClick.AddListener(StartClient);
 
         if (openConnectionSettingsButton != null)
             openConnectionSettingsButton.onClick.AddListener(OpenConnectionSettings);
@@ -70,9 +73,21 @@ public class NetManagerUI : MonoBehaviour
         }
     }
 
+    private void OnDestroy()
+    {
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnServerStopped -= OnNetworkShutdown;
+            NetworkManager.Singleton.OnClientStopped -= OnNetworkShutdown;
+        }
+    }
+
     private void OnNetworkShutdown(bool _)
     {
-        ServerDiscovery.GetInstance().StopDiscovery();
+        // Never call GetInstance() here: during teardown the singleton may be destroyed and GetInstance()
+        // would spawn a new ServerDiscovery while an old broadcast coroutine could still be running.
+        if (ServerDiscovery.TryGetExisting(out var sd))
+            sd.StopDiscovery();
     }
 
     /// <summary>Call from a UI Button via inspector, or use <see cref="openConnectionSettingsButton"/>.</summary>
@@ -224,6 +239,33 @@ public class NetManagerUI : MonoBehaviour
             transport.SetConnectionData(forceOverrideCommandLine, address, port);
     }
 
+    /// <summary>
+    /// Host mode runs an embedded client that must connect via loopback. If we reuse the LAN IP from the UI as
+    /// <see cref="UnityTransport.ConnectionData"/>.Address, <c>StartHost()</c> often fails on some OS/network setups
+    /// (no hairpin to self). Remote clients still join the listen address (e.g. <c>0.0.0.0</c> → machine's LAN IPs).
+    /// </summary>
+    private void ApplyTransportSettingsForHost(bool listenOnAllInterfaces, ushort port)
+    {
+        if (NetworkManager.Singleton == null)
+        {
+            Debug.LogError("NetManagerUI: No NetworkManager in scene.");
+            return;
+        }
+
+        var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        if (transport == null)
+        {
+            Debug.LogError("NetManagerUI: NetworkManager needs a UnityTransport component.");
+            return;
+        }
+
+        const bool forceOverrideCommandLine = true;
+        if (listenOnAllInterfaces)
+            transport.SetConnectionData(forceOverrideCommandLine, "127.0.0.1", port, "0.0.0.0");
+        else
+            transport.SetConnectionData(forceOverrideCommandLine, "127.0.0.1", port, "127.0.0.1");
+    }
+
     /// <summary>Tries Host or Server on an increasing port range if the UDP bind fails (e.g. 7777 already in use).</summary>
     private bool TryStartListen(bool asHost)
     {
@@ -242,7 +284,10 @@ public class NetManagerUI : MonoBehaviour
                 break;
             ushort port = (ushort)sum;
 
-            ApplyTransportSettingsFromUi(wide, port);
+            if (asHost)
+                ApplyTransportSettingsForHost(wide, port);
+            else
+                ApplyTransportSettingsFromUi(wide, port);
 
             bool ok = asHost ? nm.StartHost() : nm.StartServer();
             if (ok)
@@ -276,7 +321,9 @@ public class NetManagerUI : MonoBehaviour
         if (TryStartListen(asHost: false))
         {
             // Start broadcasting server location for clients to auto-discover
-            ServerDiscovery.GetInstance().StartServerBroadcast();
+            var discovery = ServerDiscovery.GetInstance();
+            discovery.SetAdvertisedGamePort(ReadPortUi());
+            discovery.StartServerBroadcast();
             Debug.Log("NetManagerUI: Server started and broadcasting for client discovery");
         }
     }
@@ -289,7 +336,9 @@ public class NetManagerUI : MonoBehaviour
         if (TryStartListen(asHost: true))
         {
             // Start broadcasting server location for clients to auto-discover
-            ServerDiscovery.GetInstance().StartServerBroadcast();
+            var discovery = ServerDiscovery.GetInstance();
+            discovery.SetAdvertisedGamePort(ReadPortUi());
+            discovery.StartServerBroadcast();
             Debug.Log("NetManagerUI: Host started and broadcasting for client discovery");
         }
     }
@@ -306,11 +355,12 @@ public class NetManagerUI : MonoBehaviour
         
         // Start server discovery - auto-connect when found
         ServerDiscovery.GetInstance().StartClientDiscovery(
-            onServerFound: (serverAddress) =>
+            onServerFound: (serverAddress, advertisedGamePort) =>
             {
-                Debug.Log($"NetManagerUI: Server discovered at {serverAddress}, connecting...");
-                Debug.LogError($"[CLIENT CONNECTION DEBUG] Attempting to connect to {serverAddress}:{ReadPortUi()}");
+                Debug.Log($"NetManagerUI: Server discovered at {serverAddress}:{advertisedGamePort}, connecting...");
+                Debug.LogError($"[CLIENT CONNECTION DEBUG] Attempting to connect to {serverAddress}:{advertisedGamePort}");
                 SetAddressUi(serverAddress);
+                SetPortUi(advertisedGamePort.ToString());
                 ApplyTransportSettingsFromUi(false);
                 
                 bool started = NetworkManager.Singleton.StartClient();
