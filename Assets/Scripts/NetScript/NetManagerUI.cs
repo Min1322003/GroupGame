@@ -301,21 +301,38 @@ public class NetManagerUI : MonoBehaviour
 
         Debug.Log("NetManagerUI: Starting client discovery...");
         
+        // Add connection error callbacks
+        var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        
         // Start server discovery - auto-connect when found
         ServerDiscovery.GetInstance().StartClientDiscovery(
             onServerFound: (serverAddress) =>
             {
                 Debug.Log($"NetManagerUI: Server discovered at {serverAddress}, connecting...");
+                Debug.LogError($"[CLIENT CONNECTION DEBUG] Attempting to connect to {serverAddress}:{ReadPortUi()}");
                 SetAddressUi(serverAddress);
                 ApplyTransportSettingsFromUi(false);
-                NetworkManager.Singleton.StartClient();
+                
+                bool started = NetworkManager.Singleton.StartClient();
+                if (!started)
+                {
+                    Debug.LogError("NetManagerUI: Failed to start client - check if already connected");
+                }
             },
             onDiscoveryTimeout: () =>
             {
                 Debug.LogWarning("NetManagerUI: No server found, trying manual connection from UI settings...");
+                string address = ReadAddressUi();
+                ushort port = ReadPortUi();
+                Debug.LogError($"[CLIENT CONNECTION DEBUG] No discovery - trying manual connection to {address}:{port}");
                 // Fallback to manual connection settings
                 ApplyTransportSettingsFromUi(false);
-                NetworkManager.Singleton.StartClient();
+                
+                bool started = NetworkManager.Singleton.StartClient();
+                if (!started)
+                {
+                    Debug.LogError("NetManagerUI: Failed to start client - check connection settings");
+                }
             }
         );
     }

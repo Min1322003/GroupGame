@@ -89,12 +89,17 @@ public class ServerDiscovery : MonoBehaviour
         string message = $"GAMESERVER:{serverIp}:{gamePort}";
         byte[] data = System.Text.Encoding.UTF8.GetBytes(message);
 
+        Debug.LogError($"[SERVER BROADCAST DEBUG] Broadcasting: {message}");
+
         while (isActive)
         {
             try
             {
                 // Broadcast to 255.255.255.255 on the discovery port
                 udpClient.Send(data, data.Length, new IPEndPoint(IPAddress.Broadcast, discoveryPort));
+                
+                // Also try sending to 127.0.0.1 for local testing
+                // udpClient.Send(data, data.Length, new IPEndPoint(IPAddress.Loopback, discoveryPort));
             }
             catch (Exception e)
             {
@@ -109,6 +114,7 @@ public class ServerDiscovery : MonoBehaviour
     {
         float timeoutSeconds = 10f;
         float elapsedTime = 0f;
+        int packetsReceived = 0;
 
         while (isActive && elapsedTime < timeoutSeconds)
         {
@@ -121,6 +127,9 @@ public class ServerDiscovery : MonoBehaviour
                 {
                     byte[] data = udpClient.Receive(ref remoteIpEndPoint);
                     string message = System.Text.Encoding.UTF8.GetString(data);
+                    packetsReceived++;
+
+                    Debug.LogError($"[DISCOVERY DEBUG] Received packet #{packetsReceived}: {message} from {remoteIpEndPoint.Address}");
 
                     if (message.StartsWith("GAMESERVER:"))
                     {
@@ -129,6 +138,7 @@ public class ServerDiscovery : MonoBehaviour
                         {
                             serverAddress = parts[1];
                             serverFound = true;
+                            Debug.LogError($"[DISCOVERY DEBUG] Valid server message parsed: IP={serverAddress}, Port={port}");
                         }
                     }
                 }
@@ -141,6 +151,7 @@ public class ServerDiscovery : MonoBehaviour
             if (serverFound)
             {
                 Debug.Log($"ServerDiscovery: Found server at {serverAddress}");
+                Debug.LogError($"[DISCOVERY DEBUG] Connecting to discovered server at {serverAddress}");
                 StopDiscovery();
                 onServerFound?.Invoke(serverAddress);
                 yield break;
