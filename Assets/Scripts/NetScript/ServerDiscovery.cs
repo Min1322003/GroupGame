@@ -14,6 +14,7 @@ public class ServerDiscovery : MonoBehaviour
 {
     [SerializeField] private ushort discoveryPort = 7779; // Different from game port
     [SerializeField] private ushort gamePort = 7778;
+    [SerializeField] [Min(3f)] private float clientDiscoveryTimeoutSeconds = 22f;
 
     /// <summary>Must match the UDP port UnityTransport is listening on (call after host/server starts).</summary>
     public void SetAdvertisedGamePort(ushort port) => gamePort = port;
@@ -80,13 +81,17 @@ public class ServerDiscovery : MonoBehaviour
 
         try
         {
-            udpClient = new UdpClient(discoveryPort);
+            // Explicit bind + reuse helps some OSes receive Wi‑Fi broadcast frames reliably.
+            udpClient = new UdpClient();
+            udpClient.ExclusiveAddressUse = false;
+            udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, discoveryPort));
             udpClient.EnableBroadcast = true;
             isActive = true;
             remoteIpEndPoint = new IPEndPoint(IPAddress.Any, discoveryPort);
 
             StartCoroutine(DiscoverServerRoutine(onServerFound, onDiscoveryTimeout));
-            Debug.Log("ServerDiscovery: Client listening for server broadcast...");
+            Debug.Log($"ServerDiscovery: Client listening on UDP {discoveryPort} for LAN beacons (timeout {clientDiscoveryTimeoutSeconds:0}s).");
         }
         catch (Exception e)
         {
@@ -97,6 +102,8 @@ public class ServerDiscovery : MonoBehaviour
 
     private IEnumerator BroadcastServerRoutine()
     {
+        bool loggedTargetsOnce = false;
+
         while (isActive && udpClient != null)
         {
             string serverIp = LanAddressUtility.GetPrimaryIpv4();
@@ -105,7 +112,26 @@ public class ServerDiscovery : MonoBehaviour
 
             try
             {
-                udpClient.Send(data, data.Length, new IPEndPoint(IPAddress.Broadcast, discoveryPort));
+                var targets = LanAddressUtility.GetDiscoveryBroadcastEndpoints(discoveryPort);
+                if (!loggedTargetsOnce)
+                {
+                    loggedTargetsOnce = true;
+                    Debug.Log(
+                        $"ServerDiscovery: sending discovery beacons to {targets.Count} address(es) " +
+                        "(global + subnet broadcasts; subnet helps on many Wi‑Fi routers).");
+                }
+
+                foreach (var ep in targets)
+                {
+                    try
+                    {
+                        udpClient.Send(data, data.Length, ep);
+                    }
+                    catch (SocketException ex)
+                    {
+                        Debug.LogWarning($"ServerDiscovery: send to {ep} failed: {ex.SocketErrorCode} {ex.Message}");
+                    }
+                }
             }
             catch (ObjectDisposedException)
             {
@@ -122,7 +148,7 @@ public class ServerDiscovery : MonoBehaviour
 
     private IEnumerator DiscoverServerRoutine(System.Action<string, ushort> onServerFound, System.Action onDiscoveryTimeout)
     {
-        float timeoutSeconds = 10f;
+        float timeoutSeconds = clientDiscoveryTimeoutSeconds;
         float elapsedTime = 0f;
         int packetsReceived = 0;
 

@@ -371,7 +371,10 @@ public class NetManagerUI : MonoBehaviour
             },
             onDiscoveryTimeout: () =>
             {
-                Debug.LogWarning("NetManagerUI: No server found, trying manual connection from UI settings...");
+                Debug.LogWarning(
+                    "NetManagerUI: No server found via LAN discovery. " +
+                    "Enter the host's LAN IP in Address and the same game port, or check: both PCs on the same Wi‑Fi (not guest isolation), " +
+                    "firewall allows inbound UDP on the game port and discovery (7779), VPN off for testing.");
                 string address = ReadAddressUi();
                 ushort port = ReadPortUi();
                 Debug.LogError($"[CLIENT CONNECTION DEBUG] No discovery - trying manual connection to {address}:{port}");
