@@ -16,7 +16,6 @@ public class NPC : NetworkBehaviour
     
     private Rigidbody2D rb;
     private PlayerController targetPlayer;
-    private NetworkObject targetPlayerNetObj;
     private bool hasExploded = false;
 
     void Awake()
@@ -24,24 +23,13 @@ public class NPC : NetworkBehaviour
         rb = GetComponent<Rigidbody2D>();
     }
 
-    public override void OnNetworkSpawn()
-    {
-        if (IsServer)
-        {
-            // Find the player (in single player, this is the only other NetworkBehaviour)
-            // In multiplayer, you may need a more robust way to find all players
-            FindTargetPlayer();
-        }
-    }
-
     void FixedUpdate()
     {
         if (!IsServer || hasExploded) return;
+
+        RefreshNearestTargetPlayer();
         if (targetPlayer == null)
-        {
-            FindTargetPlayer();
             return;
-        }
 
         // Move toward player
         Vector2 directionToPlayer = ((Vector2)targetPlayer.transform.position - rb.position).normalized;
@@ -67,15 +55,29 @@ public class NPC : NetworkBehaviour
         }
     }
 
-    private void FindTargetPlayer()
+    private void RefreshNearestTargetPlayer()
     {
-        // Find the first player in the scene
-        PlayerController[] players = FindObjectsOfType<PlayerController>();
-        if (players.Length > 0)
+        PlayerController[] players = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+        Vector2 here = rb.position;
+        float bestSq = float.MaxValue;
+        PlayerController best = null;
+
+        foreach (PlayerController p in players)
         {
-            targetPlayer = players[0];
-            targetPlayerNetObj = targetPlayer.GetComponent<NetworkObject>();
+            if (p == null) continue;
+            var netObj = p.GetComponent<NetworkObject>();
+            if (netObj != null && !netObj.IsSpawned)
+                continue;
+
+            float sq = ((Vector2)p.transform.position - here).sqrMagnitude;
+            if (sq < bestSq)
+            {
+                bestSq = sq;
+                best = p;
+            }
         }
+
+        targetPlayer = best;
     }
 
     private void TriggerExplosion()
