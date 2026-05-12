@@ -107,7 +107,8 @@ public class ServerDiscovery : MonoBehaviour
         while (isActive && udpClient != null)
         {
             string serverIp = LanAddressUtility.GetPrimaryIpv4();
-            string message = $"GAMESERVER:{serverIp}:{gamePort}";
+            // Pipe delimiter so IPv4 is not split by mistake (colon breaks "192.168.x.x").
+            string message = $"GAMESERVER|{serverIp}|{gamePort}";
             byte[] data = System.Text.Encoding.UTF8.GetBytes(message);
 
             try
@@ -168,16 +169,10 @@ public class ServerDiscovery : MonoBehaviour
 
                     Debug.Log($"ServerDiscovery: packet #{packetsReceived} from {remoteIpEndPoint.Address}: {message}");
 
-                    if (message.StartsWith("GAMESERVER:"))
+                    if (TryParseGameServerBeacon(message, remoteIpEndPoint, out serverAddress, out serverGamePort))
                     {
-                        string[] parts = message.Split(':');
-                        if (parts.Length >= 3 && ushort.TryParse(parts[2], out ushort port))
-                        {
-                            serverAddress = parts[1];
-                            serverGamePort = port;
-                            serverFound = true;
-                            Debug.Log($"ServerDiscovery: parsed server {serverAddress}:{port}");
-                        }
+                        serverFound = true;
+                        Debug.Log($"ServerDiscovery: parsed server {serverAddress}:{serverGamePort}");
                     }
                 }
             }
@@ -221,6 +216,47 @@ public class ServerDiscovery : MonoBehaviour
         }
 
         Debug.Log("ServerDiscovery: Stopped");
+    }
+
+    /// <summary>Parses <c>GAMESERVER|ip|port</c> (current) or legacy <c>GAMESERVER:ip:port</c> when ip has no colons.</summary>
+    private static bool TryParseGameServerBeacon(string message, IPEndPoint packetSource, out string address, out ushort gamePort)
+    {
+        address = null;
+        gamePort = 0;
+
+        if (string.IsNullOrEmpty(message))
+            return false;
+
+        if (message.StartsWith("GAMESERVER|", StringComparison.Ordinal))
+        {
+            string[] parts = message.Split('|');
+            if (parts.Length >= 3 && ushort.TryParse(parts[parts.Length - 1].Trim(), out gamePort))
+            {
+                address = string.Join("|", parts, 1, parts.Length - 2).Trim();
+                if (string.IsNullOrEmpty(address) && packetSource != null)
+                    address = packetSource.Address.ToString();
+                return !string.IsNullOrEmpty(address);
+            }
+
+            return false;
+        }
+
+        if (message.StartsWith("GAMESERVER:", StringComparison.Ordinal))
+        {
+            const string prefix = "GAMESERVER:";
+            string rest = message.Substring(prefix.Length);
+            int lastColon = rest.LastIndexOf(':');
+            if (lastColon > 0 && lastColon < rest.Length - 1 &&
+                ushort.TryParse(rest.Substring(lastColon + 1).Trim(), out gamePort))
+            {
+                address = rest.Substring(0, lastColon).Trim();
+                if (string.IsNullOrEmpty(address) && packetSource != null)
+                    address = packetSource.Address.ToString();
+                return !string.IsNullOrEmpty(address);
+            }
+        }
+
+        return false;
     }
 
     public static ServerDiscovery GetInstance()

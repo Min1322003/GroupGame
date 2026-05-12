@@ -196,6 +196,33 @@ public class NetManagerUI : MonoBehaviour
         return string.IsNullOrWhiteSpace(raw) ? "127.0.0.1" : raw.Trim();
     }
 
+    /// <summary>True when the player typed something in Address (whitespace-only counts as empty).</summary>
+    private bool HasExplicitAddressInUi()
+    {
+        string raw = addressInputTmp != null ? addressInputTmp.text : addressInput != null ? addressInput.text : "";
+        return !string.IsNullOrWhiteSpace(raw);
+    }
+
+    /// <summary>Sets client target on <see cref="UnityTransport"/> only; does not change address/port UI fields.</summary>
+    private void ApplyTransportClientToHost(string hostAddress, ushort port)
+    {
+        if (NetworkManager.Singleton == null)
+        {
+            Debug.LogError("NetManagerUI: No NetworkManager in scene.");
+            return;
+        }
+
+        var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        if (transport == null)
+        {
+            Debug.LogError("NetManagerUI: NetworkManager needs a UnityTransport component.");
+            return;
+        }
+
+        const bool forceOverrideCommandLine = true;
+        transport.SetConnectionData(forceOverrideCommandLine, hostAddress, port);
+    }
+
     private ushort ReadPortUi()
     {
         string raw = portInputTmp != null ? portInputTmp.text : portInput != null ? portInput.text : "";
@@ -348,26 +375,28 @@ public class NetManagerUI : MonoBehaviour
         if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening)
             return;
 
-        Debug.Log("NetManagerUI: Starting client discovery...");
-        
-        // Add connection error callbacks
-        var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
-        
-        // Start server discovery - auto-connect when found
+        // Respect whatever the player typed: connect immediately without LAN discovery or overwriting the fields.
+        if (HasExplicitAddressInUi())
+        {
+            ApplyTransportSettingsFromUi(false);
+            bool started = NetworkManager.Singleton.StartClient();
+            if (!started)
+                Debug.LogError("NetManagerUI: Failed to start client - check connection settings");
+            return;
+        }
+
+        Debug.Log("NetManagerUI: Starting client discovery (Address field empty)...");
+
         ServerDiscovery.GetInstance().StartClientDiscovery(
             onServerFound: (serverAddress, advertisedGamePort) =>
             {
                 Debug.Log($"NetManagerUI: Server discovered at {serverAddress}:{advertisedGamePort}, connecting...");
-                Debug.LogError($"[CLIENT CONNECTION DEBUG] Attempting to connect to {serverAddress}:{advertisedGamePort}");
-                SetAddressUi(serverAddress);
-                SetPortUi(advertisedGamePort.ToString());
-                ApplyTransportSettingsFromUi(false);
-                
+                Debug.Log($"[CLIENT CONNECTION DEBUG] Attempting to connect to {serverAddress}:{advertisedGamePort}");
+                ApplyTransportClientToHost(serverAddress, advertisedGamePort);
+
                 bool started = NetworkManager.Singleton.StartClient();
                 if (!started)
-                {
                     Debug.LogError("NetManagerUI: Failed to start client - check if already connected");
-                }
             },
             onDiscoveryTimeout: () =>
             {
@@ -377,15 +406,12 @@ public class NetManagerUI : MonoBehaviour
                     "firewall allows inbound UDP on the game port and discovery (7779), VPN off for testing.");
                 string address = ReadAddressUi();
                 ushort port = ReadPortUi();
-                Debug.LogError($"[CLIENT CONNECTION DEBUG] No discovery - trying manual connection to {address}:{port}");
-                // Fallback to manual connection settings
+                Debug.Log($"[CLIENT CONNECTION DEBUG] No discovery - trying manual connection to {address}:{port}");
                 ApplyTransportSettingsFromUi(false);
-                
+
                 bool started = NetworkManager.Singleton.StartClient();
                 if (!started)
-                {
                     Debug.LogError("NetManagerUI: Failed to start client - check connection settings");
-                }
             }
         );
     }
